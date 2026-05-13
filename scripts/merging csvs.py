@@ -4,7 +4,7 @@ import os
 # Define paths
 diary_path = 'Dataset/diary.csv'
 reviews_path = 'Dataset/reviews.csv'
-output_path = 'main.csv'
+output_path = 'Dataset/main.csv'
 
 # Check if files exist
 if not os.path.exists(diary_path) or not os.path.exists(reviews_path):
