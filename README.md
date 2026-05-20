@@ -31,7 +31,7 @@ The final chart proved partially my initial theory and gave me more interesting 
 
 This indicates that my motivation to write a review is driven by strong emotions, which is either deep disappointment or a desire to process "average to high" experiences, rather than a linear relationship with the rating. The review lengths also showed interesting facts to make me realize that I write longer texts when I need to justify why a movie was "not quite perfect" (missing out on a 4- or 5-star rating) or to explain exactly why a film was a total failure (the 0.5-star reviews).
 
-While this visualization successfully revealed my reviewing patterns, the dataset has limitations. It lacks the contextual data needed to connect my movie-watching habits with my state of mind or busy life periods (such as immigrating, studying, or working full-time). Additionally, I cannot account for external factors that control my review writing, such as finishing a movie late at night and simply forgetting to log a review. Despite these limitations, this project successfully transformed raw diary entries into a clear reflection of my personal behavior.
+While this visualization successfully revealed my reviewing patterns, the dataset has limitations. It lacks the contextual data needed to connect my movie-watching habits with my state of mind or busy life periods (such as immigrating, studying, or working full-time). Additionally, I cannot account for external factors that control my review writing, such as finishing a movie late at night and simply skipping to log a review. Despite these limitations, this project successfully transformed raw diary entries into a clear reflection of my personal behavior.
 
 ---
 
