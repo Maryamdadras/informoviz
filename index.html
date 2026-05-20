@@ -1,0 +1,2105 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>InforMoViz - Personal Movie Dashboard</title>
+
+  <!-- Modern Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet">
+
+  <!-- External Parsing & Charting libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+
+  <style>
+    /* Reset & CSS Variables */
+    :root {
+      --bg-dark: #14181c;
+      --bg-card: #1c2228;
+      --bg-card-elevated: #2c3440;
+      --border-dark: #2c3440;
+      --text-primary: #99aabb;
+      --text-highlight: #ffffff;
+
+      --color-green: #00e054;
+      --color-blue: #40bcf4;
+      --color-orange: #ff8000;
+
+      --font-heading: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    /* Custom scrollbars */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: var(--bg-dark);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--bg-card-elevated);
+      border-radius: 4px;
+      transition: var(--transition-smooth);
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--color-orange);
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-primary);
+      font-family: var(--font-body);
+      overflow-x: hidden;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    /* Ambient drifting spheres in background */
+    .ambient-glow {
+      position: absolute;
+      width: 500px;
+      height: 500px;
+      border-radius: 50%;
+      filter: blur(140px);
+      opacity: 0.12;
+      z-index: -1;
+      animation: drift 20s infinite alternate ease-in-out;
+      pointer-events: none;
+    }
+
+    .glow-orange {
+      top: 5%;
+      left: -100px;
+      background-color: var(--color-orange);
+    }
+
+    .glow-green {
+      top: 45%;
+      right: -100px;
+      background-color: var(--color-green);
+      animation-delay: -5s;
+    }
+
+    .glow-blue {
+      bottom: 5%;
+      left: 10%;
+      background-color: var(--color-blue);
+      animation-delay: -10s;
+    }
+
+    @keyframes drift {
+      0% {
+        transform: translate(0, 0) scale(1);
+      }
+
+      100% {
+        transform: translate(60px, 30px) scale(1.15);
+      }
+    }
+
+    /* Top Letterboxd color stripe */
+    .top-stripe {
+      height: 4px;
+      background: linear-gradient(90deg,
+          var(--color-orange) 0%,
+          var(--color-orange) 33.33%,
+          var(--color-green) 33.33%,
+          var(--color-green) 66.66%,
+          var(--color-blue) 66.66%,
+          var(--color-blue) 100%);
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+    }
+
+    header {
+      background-color: rgba(20, 24, 28, 0.95);
+      border-bottom: 1px solid var(--border-dark);
+      backdrop-filter: blur(10px);
+      padding: 16px 0;
+    }
+
+    .nav-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .brand-logo-link {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: inherit;
+    }
+
+    .lb-circles {
+      display: flex;
+      position: relative;
+      width: 40px;
+      height: 20px;
+      align-items: center;
+    }
+
+    .lb-circles .circle {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      position: absolute;
+      mix-blend-mode: screen;
+      transition: var(--transition-smooth);
+    }
+
+    .lb-circles .circle.orange {
+      background-color: var(--color-orange);
+      left: 0;
+    }
+
+    .lb-circles .circle.green {
+      background-color: var(--color-green);
+      left: 10px;
+    }
+
+    .lb-circles .circle.blue {
+      background-color: var(--color-blue);
+      left: 20px;
+    }
+
+    .brand-logo-link:hover .lb-circles .circle.orange {
+      transform: translateX(-2px);
+    }
+
+    .brand-logo-link:hover .lb-circles .circle.blue {
+      transform: translateX(2px);
+    }
+
+    .brand-title {
+      font-family: var(--font-heading);
+      font-weight: 800;
+      font-size: 1.5rem;
+      color: var(--text-highlight);
+      letter-spacing: -0.5px;
+    }
+
+    .nav-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background-color: var(--bg-card-elevated);
+      color: var(--text-primary);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      padding: 8px 16px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 500;
+      font-size: 0.85rem;
+      transition: var(--transition-smooth);
+      cursor: pointer;
+    }
+
+    .nav-btn:hover {
+      background-color: #3f4a5c;
+      color: var(--text-highlight);
+      transform: translateY(-1px);
+    }
+
+    /* Layout Container */
+    .container {
+      max-width: 1200px;
+      margin: 40px auto;
+      padding: 0 24px;
+      flex-grow: 1;
+    }
+
+    /* Hero Section */
+    .hero {
+      text-align: center;
+      margin-bottom: 48px;
+    }
+
+    .hero-title-container {
+      position: relative;
+      display: inline-block;
+    }
+
+    .hero-title {
+      font-family: var(--font-heading);
+      font-size: 3.5rem;
+      font-weight: 800;
+      color: var(--text-highlight);
+      letter-spacing: -1.5px;
+      line-height: 1.1;
+      margin-bottom: 12px;
+    }
+
+    .hero-title span {
+      background: linear-gradient(90deg, var(--color-orange), var(--color-green), var(--color-blue));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero-subtitle {
+      font-family: var(--font-heading);
+      font-size: 1.25rem;
+      color: var(--text-primary);
+      margin-bottom: 16px;
+    }
+
+    /* Loading Overlay styling */
+    .loader-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: var(--bg-dark);
+      z-index: 10000;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 0.5s ease;
+    }
+
+    .loader-card {
+      text-align: center;
+      max-width: 400px;
+    }
+
+    .loader-spinner {
+      width: 50px;
+      height: 50px;
+      border: 3px solid rgba(255, 255, 255, 0.05);
+      border-radius: 50%;
+      border-top-color: var(--color-orange);
+      animation: spin 1s infinite linear;
+      margin: 0 auto 24px auto;
+    }
+
+    @keyframes spin {
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+
+    .loader-text {
+      font-family: var(--font-heading);
+      color: var(--text-highlight);
+      font-size: 1.25rem;
+      margin-bottom: 8px;
+    }
+
+    .loader-subtext {
+      font-size: 0.85rem;
+      color: var(--text-primary);
+    }
+
+    /* Error Banner styling */
+    .error-card {
+      display: none;
+      background-color: rgba(255, 95, 86, 0.1);
+      border: 1px solid #ff5f56;
+      padding: 20px;
+      border-radius: 12px;
+      margin-bottom: 30px;
+      color: #ff5f56;
+      font-weight: 500;
+      text-align: center;
+    }
+
+    /* Stats Grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      margin-bottom: 48px;
+    }
+
+    @media (max-width: 768px) {
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .stat-card {
+      background: var(--bg-card);
+      border: 1px solid rgba(255, 255, 255, 0.03);
+      border-radius: 12px;
+      padding: 24px;
+      position: relative;
+      transition: var(--transition-smooth);
+      overflow: hidden;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    }
+
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 3px;
+      background: transparent;
+      transition: background 0.3s ease;
+    }
+
+    .stat-card.hover-orange:hover::before {
+      background: var(--color-orange);
+    }
+
+    .stat-card.hover-green:hover::before {
+      background: var(--color-green);
+    }
+
+    .stat-card.hover-blue:hover::before {
+      background: var(--color-blue);
+    }
+
+    .stat-card.hover-gradient:hover::before {
+      background: linear-gradient(90deg, var(--color-orange), var(--color-green), var(--color-blue));
+    }
+
+    .stat-card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(255, 255, 255, 0.1);
+      background-color: var(--bg-card-elevated);
+    }
+
+    .stat-num {
+      font-family: var(--font-heading);
+      font-size: 2.8rem;
+      font-weight: 800;
+      line-height: 1;
+      margin-bottom: 8px;
+    }
+
+    .stat-card.hover-orange .stat-num {
+      color: var(--color-orange);
+    }
+
+    .stat-card.hover-green .stat-num {
+      color: var(--color-green);
+    }
+
+    .stat-card.hover-blue .stat-num {
+      color: var(--color-blue);
+    }
+
+    .stat-card.hover-gradient .stat-num {
+      background: linear-gradient(135deg, #ffffff 40%, var(--text-primary));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .stat-label {
+      font-family: var(--font-heading);
+      font-size: 0.95rem;
+      color: var(--text-highlight);
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .stat-desc {
+      font-size: 0.8rem;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Sections Divider Headers */
+    .section-header {
+      margin-top: 60px;
+      margin-bottom: 30px;
+      border-bottom: 1px solid var(--border-dark);
+      padding-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .section-header h3 {
+      font-family: var(--font-heading);
+      font-size: 1.8rem;
+      color: var(--text-highlight);
+      font-weight: 700;
+    }
+
+    .section-header .header-accent {
+      width: 12px;
+      height: 1.8rem;
+      border-radius: 3px;
+    }
+
+    .header-accent.orange {
+      background-color: var(--color-orange);
+    }
+
+    .header-accent.green {
+      background-color: var(--color-green);
+    }
+
+    /* Top 10 lists Grid */
+    .lists-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 24px;
+      margin-bottom: 48px;
+    }
+
+    @media (max-width: 1024px) {
+      .lists-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 768px) {
+      .lists-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Make the last list card span the full width of the row */
+    .lists-grid>.list-card:last-child {
+      grid-column: 1 / -1;
+      height: auto;
+      min-height: 380px;
+    }
+
+    .list-card {
+      background-color: var(--bg-card);
+      border: 1px solid rgba(255, 255, 255, 0.03);
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+      display: flex;
+      flex-direction: column;
+      height: 480px;
+      min-width: 0;
+    }
+
+    .list-header-wrapper {
+      margin-bottom: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+
+    .list-card-title {
+      font-family: var(--font-heading);
+      font-size: 1.2rem;
+      color: var(--text-highlight);
+      font-weight: 700;
+      margin-bottom: 2px;
+    }
+
+    .list-card-subtitle {
+      font-size: 0.85rem;
+      color: var(--text-primary);
+    }
+
+    .list-icon {
+      font-size: 1.25rem;
+      background-color: rgba(255, 255, 255, 0.04);
+      padding: 6px 10px;
+      border-radius: 8px;
+    }
+
+    .list-items-container {
+      overflow-y: auto;
+      flex-grow: 1;
+      padding-right: 4px;
+    }
+
+    /* Sleek Numbered List Styles */
+    .dashboard-list {
+      list-style: none;
+      counter-reset: rank-counter;
+    }
+
+    .dashboard-list li {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+      transition: var(--transition-smooth);
+      font-size: 0.9rem;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .dashboard-list li:hover {
+      background-color: rgba(255, 255, 255, 0.04);
+      transform: translateX(4px);
+    }
+
+    /* -----------------------------------------------
+       Global fixed tooltip — avoids overflow clipping
+       .list-items-container has overflow-y:auto which
+       traps ::after pseudo-elements regardless of z-index.
+       Using a body-level fixed div instead.
+    ----------------------------------------------- */
+    #list-tooltip {
+      position: fixed;
+      background: #1c2228;
+      border: 1px solid #2c3440;
+      color: #ffffff;
+      font-size: 0.8rem;
+      line-height: 1.6;
+      padding: 10px 14px;
+      border-radius: 10px;
+      white-space: pre-line;
+      max-width: 290px;
+      min-width: 160px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.05);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s ease;
+      z-index: 99999;
+      word-break: break-word;
+    }
+
+    #list-tooltip.visible {
+      opacity: 1;
+    }
+
+    .list-item-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+      /* Ensures overflow text-overflow works inside flex items */
+    }
+
+    .list-item-left::before {
+      counter-increment: rank-counter;
+      content: counter(rank-counter);
+      font-family: var(--font-heading);
+      font-weight: 700;
+      color: var(--text-primary);
+      width: 20px;
+      text-align: right;
+      font-size: 0.85rem;
+      opacity: 0.6;
+    }
+
+    .dashboard-list li:nth-child(1) .list-item-left::before {
+      color: var(--color-orange);
+      opacity: 1;
+    }
+
+    .dashboard-list li:nth-child(2) .list-item-left::before {
+      color: var(--color-green);
+      opacity: 1;
+    }
+
+    .dashboard-list li:nth-child(3) .list-item-left::before {
+      color: var(--color-blue);
+      opacity: 1;
+    }
+
+    .item-info {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    .item-title {
+      color: var(--text-highlight);
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .item-meta {
+      font-size: 0.75rem;
+      color: var(--text-primary);
+      margin-top: 2px;
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .item-meta-desc {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .badge {
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 12px;
+      white-space: nowrap;
+    }
+
+    .badge.orange {
+      background-color: rgba(255, 128, 0, 0.12);
+      color: var(--color-orange);
+    }
+
+    .badge.green {
+      background-color: rgba(0, 224, 84, 0.12);
+      color: var(--color-green);
+    }
+
+    .badge.blue {
+      background-color: rgba(64, 188, 244, 0.12);
+      color: var(--color-blue);
+    }
+
+    .badge.gray {
+      background-color: rgba(255, 255, 255, 0.05);
+      color: var(--text-primary);
+    }
+
+    /* Interactive Charts Grid */
+    .charts-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 24px;
+      margin-bottom: 60px;
+    }
+
+    @media (max-width: 900px) {
+      .charts-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .chart-card {
+      background-color: var(--bg-card);
+      border: 1px solid rgba(255, 255, 255, 0.03);
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+      display: flex;
+      flex-direction: column;
+      min-height: 400px;
+    }
+
+    .chart-title-wrapper {
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .chart-pulse-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background-color: var(--color-green);
+    }
+
+    .chart-card h4 {
+      font-family: var(--font-heading);
+      font-weight: 600;
+      color: var(--text-highlight);
+      font-size: 1.1rem;
+    }
+
+    .chart-canvas {
+      width: 100%;
+      flex-grow: 1;
+      height: 320px;
+    }
+
+    /* Footer */
+    footer {
+      background-color: #0c0f12;
+      border-top: 1px solid var(--border-dark);
+      padding: 40px 0;
+      text-align: center;
+      font-size: 0.85rem;
+    }
+
+    .footer-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .social-links {
+      display: flex;
+      gap: 16px;
+    }
+
+    .social-icon-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 20px;
+      color: var(--text-primary);
+      text-decoration: none;
+      font-size: 0.8rem;
+      font-weight: 500;
+      transition: var(--transition-smooth);
+    }
+
+    .social-icon-btn:hover {
+      color: var(--text-highlight);
+      transform: translateY(-2px);
+    }
+
+    .social-icon-btn.github:hover {
+      border-color: #ffffff;
+      background-color: #24292e;
+    }
+
+    .social-icon-btn.letterboxd:hover {
+      border-color: var(--color-green);
+      background-color: rgba(0, 224, 84, 0.05);
+    }
+
+    .footer-copyright {
+      opacity: 0.5;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- Top Stripe Decors -->
+  <div class="top-stripe"></div>
+
+  <!-- Ambient Glowing Backdrops -->
+  <div class="ambient-glow glow-orange"></div>
+  <div class="ambient-glow glow-green"></div>
+  <div class="ambient-glow glow-blue"></div>
+
+  <!-- Loading Animation Overlay -->
+  <div class="loader-overlay" id="loading-overlay">
+    <div class="loader-card">
+      <div class="loader-spinner"></div>
+      <div class="loader-text" id="loader-status">Fetching Movie Database...</div>
+      <div class="loader-subtext">Compiling Letterboxd Diary Logs & TMDB Metadata</div>
+    </div>
+  </div>
+
+  <!-- Header Navigation -->
+  <header>
+    <div class="nav-container">
+      <a href="#" class="brand-logo-link">
+        <div class="lb-circles">
+          <div class="circle orange"></div>
+          <div class="circle green"></div>
+          <div class="circle blue"></div>
+        </div>
+        <span class="brand-title">InforMoViz</span>
+      </a>
+      <a href="https://letterboxd.com/mrymdrs/" target="_blank" rel="noopener noreferrer" class="nav-btn">
+        Letterboxd Profile
+      </a>
+    </div>
+  </header>
+
+  <!-- Main Workspace -->
+  <main class="container">
+
+    <!-- Error Banner -->
+    <div class="error-card" id="error-banner"></div>
+
+    <!-- Hero / Intro Header -->
+    <section class="hero">
+      <div class="hero-title-container">
+        <h1 class="hero-title"><span>InforMoViz</span> Dashboard</h1>
+      </div>
+      <h2 class="hero-subtitle">Interactive exploration of my personal film library and reviews</h2>
+    </section>
+
+    <!-- Dynamic Quick Stats Grid -->
+    <section class="stats-grid">
+      <!-- Total Movies -->
+      <div class="stat-card hover-orange">
+        <div class="stat-num" id="stat-total-watched">-</div>
+        <div class="stat-label">Total Watched</div>
+        <div class="stat-desc" id="stat-total-desc">Across all diary logs</div>
+      </div>
+      <!-- Average Rating -->
+      <div class="stat-card hover-green">
+        <div class="stat-num" id="stat-avg-rating">-</div>
+        <div class="stat-label">Average Rating</div>
+        <div class="stat-desc" id="stat-avg-desc">Based on rated films</div>
+      </div>
+      <!-- Busiest Year -->
+      <div class="stat-card hover-blue">
+        <div class="stat-num" id="stat-mode-year">-</div>
+        <div class="stat-label">Top Release Year</div>
+        <div class="stat-desc" id="stat-mode-desc">Most watched movie year</div>
+      </div>
+
+    </section>
+
+    <!-- Dynamic Top 10 Insights Grid -->
+    <div class="section-header">
+      <span class="header-accent orange"></span>
+      <h3>Top 10 Insights</h3>
+    </div>
+
+    <section class="lists-grid">
+      <!-- Hall of Fame -->
+      <div class="list-card">
+        <div class="list-header-wrapper">
+          <div>
+            <h4 class="list-card-title">Hall of Fame</h4>
+            <div class="list-card-subtitle">All-Time Favorites (5.0★)</div>
+          </div>
+          <span class="list-icon">👑</span>
+        </div>
+        <div class="list-items-container">
+          <ol class="dashboard-list" id="list-fame"></ol>
+        </div>
+      </div>
+
+      <!-- Hall of Shame -->
+      <div class="list-card">
+        <div class="list-header-wrapper">
+          <div>
+            <h4 class="list-card-title">Hall of Shame</h4>
+            <div class="list-card-subtitle">Absolute Worst Rated (0.5★-1.0★)</div>
+          </div>
+          <span class="list-icon">⚠️</span>
+        </div>
+        <div class="list-items-container">
+          <ol class="dashboard-list" id="list-shame"></ol>
+        </div>
+      </div>
+
+      <!-- The Passionate Critic -->
+      <div class="list-card">
+        <div class="list-header-wrapper">
+          <div>
+            <h4 class="list-card-title">The Passionate Critic</h4>
+            <div class="list-card-subtitle">Longest Reviews written (by characters)</div>
+          </div>
+          <span class="list-icon">✍️</span>
+        </div>
+        <div class="list-items-container">
+          <ol class="dashboard-list" id="list-critic"></ol>
+        </div>
+      </div>
+
+      <!-- The Time Traveler -->
+      <div class="list-card">
+        <div class="list-header-wrapper">
+          <div>
+            <h4 class="list-card-title">The Time Traveler</h4>
+            <div class="list-card-subtitle">Most Watched Movie Release Years</div>
+          </div>
+          <span class="list-icon">⏳</span>
+        </div>
+        <div class="list-items-container">
+          <ol class="dashboard-list" id="list-years"></ol>
+        </div>
+      </div>
+
+      <!-- Quality vs Quantity -->
+      <div class="list-card">
+        <div class="list-header-wrapper">
+          <div>
+            <h4 class="list-card-title">Quality vs. Quantity</h4>
+            <div class="list-card-subtitle">Highest Rated Genres (by Average Rating)</div>
+          </div>
+          <span class="list-icon">📊</span>
+        </div>
+        <div class="list-items-container">
+          <ol class="dashboard-list" id="list-genres"></ol>
+        </div>
+      </div>
+
+      <!-- The Frequent Flyer -->
+      <div class="list-card">
+        <div class="list-header-wrapper">
+          <div>
+            <h4 class="list-card-title">The Frequent Flyer</h4>
+            <div class="list-card-subtitle">Most Explored Origin Countries</div>
+          </div>
+          <span class="list-icon">✈️</span>
+        </div>
+        <div class="list-items-container">
+          <ol class="dashboard-list" id="list-countries"></ol>
+        </div>
+      </div>
+
+      <!-- The Busiest Binge -->
+      <div class="list-card">
+        <div class="list-header-wrapper">
+          <div>
+            <h4 class="list-card-title">The Busiest Binge</h4>
+            <div class="list-card-subtitle">Craziest Watched Months (Watch Counts)</div>
+          </div>
+          <span class="list-icon">🍿</span>
+        </div>
+        <div class="list-items-container">
+          <ol class="dashboard-list" id="list-months"></ol>
+        </div>
+      </div>
+
+      <!-- The Antique Appreciator -->
+      <div class="list-card">
+        <div class="list-header-wrapper">
+          <div>
+            <h4 class="list-card-title">The Antique Appreciator</h4>
+            <div class="list-card-subtitle">Oldest Discoveries (by Release Year)</div>
+          </div>
+          <span class="list-icon">📜</span>
+        </div>
+        <div class="list-items-container">
+          <ol class="dashboard-list" id="list-antique"></ol>
+        </div>
+      </div>
+
+      <!-- Left Speechless -->
+      <div class="list-card">
+        <div class="list-header-wrapper">
+          <div>
+            <h4 class="list-card-title">Left Speechless</h4>
+            <div class="list-card-subtitle">Shortest Reviews Written</div>
+          </div>
+          <span class="list-icon">😶</span>
+        </div>
+        <div class="list-items-container">
+          <ol class="dashboard-list" id="list-speechless"></ol>
+        </div>
+      </div>
+
+      <!-- Foreign Gems -->
+      <div class="list-card">
+        <div class="list-header-wrapper">
+          <div>
+            <h4 class="list-card-title">Foreign Gems</h4>
+            <div class="list-card-subtitle">Top International Films (excl. US)</div>
+          </div>
+          <span class="list-icon">🌍</span>
+        </div>
+        <div class="list-items-container">
+          <ol class="dashboard-list" id="list-foreign"></ol>
+        </div>
+      </div>
+
+      <!-- The True Neutral -->
+      <div class="list-card">
+        <div class="list-header-wrapper">
+          <div>
+            <h4 class="list-card-title">The True Neutral</h4>
+            <div class="list-card-subtitle">The 'Meh' List (Exactly 2.5★)</div>
+          </div>
+          <span class="list-icon">⚖️</span>
+        </div>
+        <div class="list-items-container">
+          <ol class="dashboard-list" id="list-neutral"></ol>
+        </div>
+      </div>
+
+      <!-- Genre Masterpieces -->
+      <div class="list-card">
+        <div class="list-header-wrapper">
+          <div>
+            <h4 class="list-card-title">Genre Masterpieces</h4>
+            <div class="list-card-subtitle">Top Drama Masterpieces</div>
+          </div>
+          <span class="list-icon">🎭</span>
+        </div>
+        <div class="list-items-container">
+          <ol class="dashboard-list" id="list-masterpieces"></ol>
+        </div>
+      </div>
+
+      <!-- The Cinematic Diet -->
+      <div class="list-card">
+        <div class="list-header-wrapper">
+          <div>
+            <h4 class="list-card-title">The Cinematic Diet</h4>
+            <div class="list-card-subtitle">Most Watched Days of the Week</div>
+          </div>
+          <span class="list-icon">📅</span>
+        </div>
+        <div class="list-items-container">
+          <ol class="dashboard-list" id="list-diet"></ol>
+        </div>
+      </div>
+    </section>
+
+    <!-- Interactive Visualizations -->
+    <div class="section-header">
+      <span class="header-accent green"></span>
+      <h3>Interactive Visualizations</h3>
+    </div>
+
+    <section class="charts-grid">
+      <!-- Genre Distribution Treemap -->
+      <div class="chart-card">
+        <div class="chart-title-wrapper">
+          <span class="chart-pulse-dot"></span>
+          <h4>Genre Distribution (Treemap)</h4>
+        </div>
+        <div class="chart-canvas" id="chart-genre-treemap"></div>
+      </div>
+
+      <!-- Rating Distribution Bar Chart -->
+      <div class="chart-card">
+        <div class="chart-title-wrapper">
+          <span class="chart-pulse-dot"></span>
+          <h4>Rating Distribution (Bar Chart)</h4>
+        </div>
+        <div class="chart-canvas" id="chart-rating-bar"></div>
+      </div>
+
+      <!-- Viewing History Heatmap -->
+      <div class="chart-card">
+        <div class="chart-title-wrapper">
+          <span class="chart-pulse-dot"></span>
+          <h4>Viewing History (Heatmap)</h4>
+        </div>
+        <div class="chart-canvas" id="chart-viewing-heatmap"></div>
+      </div>
+
+      <!-- Global Origin Choropleth Map -->
+      <div class="chart-card">
+        <div class="chart-title-wrapper">
+          <span class="chart-pulse-dot"></span>
+          <h4>Global Origin (Choropleth Map)</h4>
+        </div>
+        <div class="chart-canvas" id="chart-origin-map"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer Area -->
+  <footer>
+    <div class="footer-container">
+      <p style="color: var(--text-primary); max-width: 400px; line-height: 1.5;">
+        Designed and coded to match the Letterboxd aesthetic. Live analysis dashboard of Maryam Dadrasrazi.
+      </p>
+
+      <div class="social-links">
+        <a href="https://github.com/maryamdadras" target="_blank" rel="noopener noreferrer"
+          class="social-icon-btn github">
+          <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16" style="margin-right: 4px;">
+            <path
+              d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z" />
+          </svg>
+          GitHub
+        </a>
+        <a href="https://letterboxd.com/mrymdrs/" target="_blank" rel="noopener noreferrer"
+          class="social-icon-btn letterboxd">
+          <!-- Letterboxd styled circles logo snippet -->
+          <svg width="24" height="12" viewBox="0 0 40 20" fill="currentColor" style="margin-right: 4px;">
+            <circle cx="10" cy="10" r="8" fill="var(--color-orange)" opacity="0.9" />
+            <circle cx="20" cy="10" r="8" fill="var(--color-green)" opacity="0.9" style="mix-blend-mode: screen;" />
+            <circle cx="30" cy="10" r="8" fill="var(--color-blue)" opacity="0.9" style="mix-blend-mode: screen;" />
+          </svg>
+          Letterboxd
+        </a>
+      </div>
+
+      <p class="footer-copyright">
+        &copy; 2026 Maryam Dadrasrazi. All rights reserved. Created for personal portfolio showcase.
+      </p>
+    </div>
+  </footer>
+
+  <!-- Embedded CSV Data to prevent CORS policy blocks on local file protocol -->
+  <script id="csv-data" type="text/csv">Name,Year,Letterboxd URI,Rating,Watched Date,Review,Genre,Country
+Roma,2018,https://boxd.it/1it1ZR,3.0,2020-08-12,,Drama,"United Kingdom, United States of America"
+Gravity,2013,https://boxd.it/1izFE7,2.0,2020-08-13,,"Science Fiction, Thriller, Drama","United Kingdom, United States of America"
+The Square,2017,https://boxd.it/1jbB6h,3.0,2020-08-18,Christian was hot 🙂,Drama,"Denmark, France, Germany, Sweden, United States of America"
+Manchester by the Sea,2016,https://boxd.it/1jcrzP,4.0,2020-08-19,One of the few movies that made me cry.,Drama,United States of America
+The Lobster,2015,https://boxd.it/1jgM6R,3.0,2020-08-20,Fuck that loner leader.,"Comedy, Drama, Romance","France, Greece, Ireland, Netherlands, United Kingdom"
+Blue Valentine,2010,https://boxd.it/1jyCU9,3.0,2020-08-22,"Cindy was being a bitch. She had to be there and try to solve the problems not just quitting after all the things Dean did.
+And the interesting thing is that the whole movie wanted us to believe this, cause we know everything about Cindy’s life but we don’t even know what’s Deans family name!","Drama, Romance",United States of America
+The Big Lebowski,1998,https://boxd.it/1ltW2J,2.0,2020-09-09,,"Comedy, Crime","United Kingdom, United States of America"
+GoodFellas,1990,https://boxd.it/1ltWg7,3.5,2020-09-09,After all being a rat is such a dick move.,"Drama, Crime",United States of America
+A Beautiful Mind,2001,https://boxd.it/1ltWrz,3.0,2020-09-09,Thanks for making these movies and letting us know these kinda people!,"Drama, Romance",United States of America
+2046,2004,https://boxd.it/1ltWBp,3.0,2020-09-09,I like the story! Complicated but simple at the same time.,"Drama, Science Fiction, Romance","Germany, Hong Kong, China, France, Italy"
+Chemical Hearts,2020,https://boxd.it/1ltWLp,2.0,2020-09-09,,"Drama, Romance",United States of America
+Allied,2016,https://boxd.it/1ltWU7,3.0,2020-09-09,"I fuckin cried:,(((
+And that’s a rare thing.","Action, Drama, War, Romance, Thriller","China, United States of America"
+One Day,2011,https://boxd.it/1ltXap,3.5,2020-09-09,"The fake British accent was bothering, but oh man.....
+I was about to cry....
+Fuck trucks.","Drama, Romance","United Kingdom, United States of America"
+The Hangover,2009,https://boxd.it/1rldL3,3.0,2020-10-22,Photos were epic!,Comedy,United States of America
+The Hangover Part II,2011,https://boxd.it/1rlel1,3.0,2020-10-23,"I don’t get it man, how the hell he was ok with loosing his finger?",Comedy,United States of America
+Three Monkeys,2008,https://boxd.it/1rlftv,3.0,2020-11-01,It’s always Erdoğan‘s fault.,"Drama, Thriller","Turkey, Italy, France"
+La Dolce Vita,1960,https://boxd.it/1rmaJF,1.0,2020-11-03,"Waste of time.
+But nice boobs and asses man:)))
+I mean it was 1960’s after all:))))))","Comedy, Drama","France, Italy"
+Catch Me If You Can,2002,https://boxd.it/1rwmPZ,3.0,2020-11-04,,"Drama, Crime",United States of America
+Memories of Murder,2003,https://boxd.it/1HPxkZ,3.5,2021-03-06,They guy who was fixing something in downstairs while they were interrogating the hung up man was the murderer. But anyway I WANTED AN ENDING.,"Crime, Drama, Thriller",South Korea
+8 Mile,2002,https://boxd.it/1K0Mr7,2.0,2021-03-08,,"Drama, Music","Germany, United States of America"
+WandaVision,2021,https://boxd.it/1J9OLn,3.0,2021-03-15,Poor Wanda:(((,Unknown,Unknown
+I Care a Lot,2020,https://boxd.it/1J9OWF,3.5,2021-03-16,"Tbh, deep down I rly needed that ending part.","Crime, Thriller, Drama, Comedy","United Kingdom, United States of America"
+Jack Reacher,2012,https://boxd.it/1K0Lld,1.5,2021-03-22,,"Crime, Drama, Thriller, Action",United States of America
+Set It Up,2018,https://boxd.it/1K1mhH,3.0,2021-03-22,,"Romance, Comedy",United States of America
+Jennifer's Body,2009,https://boxd.it/1K87Tv,1.5,2021-03-23,MEGAN FOX SUCKS IN ACTING NO MATTER WHAT.,"Horror, Comedy",United States of America
+Moonlight,2016,https://boxd.it/1K90nJ,2.0,2021-03-24,,Drama,United States of America
+The Vow,2012,https://boxd.it/1ObcQj,3.0,2021-03-30,"Life goals:,))))","Drama, Romance",United States of America
+Blade Runner,1982,https://boxd.it/1OberF,1.5,2021-04-05,,"Science Fiction, Drama, Thriller","United States of America, Hong Kong, United Kingdom"
+Blade Runner 2049,2017,https://boxd.it/1Obn6r,2.0,2021-04-06,,"Science Fiction, Drama","Canada, United Kingdom, United States of America"
+Second Act,2018,https://boxd.it/1Oq7ST,2.0,2021-04-20,,"Romance, Comedy","United States of America, China"
+In the Arms of an Assassin,2019,https://boxd.it/1OoMsX,0.5,2021-04-21,,"Romance, Thriller",Dominican Republic
+Bicentennial Man,1999,https://boxd.it/1PaNi1,3.0,2021-04-27,,"Drama, Romance, Science Fiction","Germany, United States of America"
+The Curious Case of Benjamin Button,2008,https://boxd.it/1Pc1FF,3.0,2021-04-27,,"Drama, Fantasy, Romance",United States of America
+The Father,2020,https://boxd.it/1QaN1X,4.0,2021-05-04,It’s so sad to know my own grandpa has gone through this pain.,Drama,"France, United Kingdom"
+The Mitchells vs. the Machines,2021,https://boxd.it/1RHXEZ,2.5,2021-05-13,,"Animation, Adventure, Comedy","Hong Kong, United States of America"
+Steve Jobs,2015,https://boxd.it/1RHSNn,3.0,2021-05-14,"Felt bad for not knowing what was going on behind this popular logo.
+The documentary could have been made better with a clear timeline.","Drama, History","United States of America, United Kingdom"
+Ted,2012,https://boxd.it/1T1vYV,3.0,2021-05-25,Mila>>>>>>>>>>>>,,Comedy,Fantasy,United States of America
+The Blind Side,2009,https://boxd.it/1ToWRj,3.0,2021-05-27,,Drama,United States of America
+Anchorman: The Legend of Ron Burgundy,2004,https://boxd.it/1TnbEl,3.0,2021-05-28,I lost my shit when Bexter came back.,Comedy,United States of America
+How to Lose a Guy in 10 Days,2003,https://boxd.it/21MJvJ,3.5,2021-07-19,,"Comedy, Romance",United States of America
+All Together Now,2020,https://boxd.it/21MKmD,2.0,2021-07-20,Just take that money bitch.,Drama,United States of America
+All the Bright Places,2020,https://boxd.it/21MJ6p,3.0,2021-07-27,,"Romance, Drama",United States of America
+Neighbors,2014,https://boxd.it/21ML2T,3.0,2021-07-27,Cool parents!,Comedy,United States of America
+Neighbors 2: Sorority Rising,2016,https://boxd.it/21MLm5,3.5,2021-07-27,Best toy for a kid!,Comedy,United States of America
+Dirty Grandpa,2016,https://boxd.it/21MLwf,3.0,2021-07-28,Pamela is the best!,Comedy,"United States of America, Germany"
+To All the Boys: P.S. I Still Love You,2020,https://boxd.it/22aql9,2.0,2021-07-30,I just watched it because of Peter.,"Romance, Comedy",United States of America
+Adrift,2018,https://boxd.it/22kAyd,4.0,2021-08-01,"If I could live again, I would live like that.","Thriller, Romance, Adventure","Iceland, United States of America"
+I Still Believe,2020,https://boxd.it/23dxcX,0.5,2021-08-06,"Camp just wanted to introduce himself, he didn’t want to really talk about his ex wife’s life.
+If he would we would have known what’s the deal with that coat.","Music, Drama, Romance",United States of America
+Looks That Kill,2020,https://boxd.it/23dxpn,0.5,2021-08-06,Wtf man. Awwwwwfull.,"Comedy, Romance, Drama",United States of America
+Malevolent,2018,https://boxd.it/2574Ll,3.0,2021-08-21,Shit was scary.,Horror,United Kingdom
+Vicky Cristina Barcelona,2008,https://boxd.it/278NzJ,3.0,2021-09-03,,"Drama, Romance","Spain, United States of America"
+Deep Water,2022,https://boxd.it/2HKF6z,2.0,2022-03-27,,"Drama, Mystery, Thriller",United States of America
+Spider-Man: No Way Home,2021,https://boxd.it/2HKFsF,2.0,2022-03-28,Rewatched wrong spider man movies before watching this.,"Action, Adventure, Science Fiction",United States of America
+The Eyes of Tammy Faye,2021,https://boxd.it/2KKU1V,4.0,2022-04-14,Jessica🤌🏿,"Drama, History",United States of America
+Elvis,2022,https://boxd.it/3cX8hp,3.0,2022-08-26,,"Music, History, Drama","Australia, United States of America"
+Malcolm & Marie,2021,https://boxd.it/3d3F3n,4.0,2022-09-08,,"Drama, Romance",United States of America
+The Menu,2022,https://boxd.it/3JB26N,3.0,2023-01-19,,"Comedy, Horror",United States of America
+The Guardians of the Galaxy Holiday Special,2022,https://boxd.it/3JB3bJ,1.5,2023-01-19,-.-,"Comedy, Science Fiction, Adventure",United States of America
+Queen of the Desert,2015,https://boxd.it/3Pxv4n,0.5,2023-02-07,"Stupid 
+They don’t know shit about middle east","Drama, Adventure, History","Morocco, United States of America"
+Babylon,2022,https://boxd.it/3Q6qw7,3.5,2023-02-11,My new favorite.,"Drama, Comedy",United States of America
+Breakfast at Tiffany's,1961,https://boxd.it/470Y2h,3.0,2023-02-11,,"Comedy, Romance, Drama",United States of America
+Puss in Boots: The Last Wish,2022,https://boxd.it/470dlh,2.0,2023-03-16,,"Animation, Adventure, Fantasy, Comedy, Family",United States of America
+Bullet Train,2022,https://boxd.it/470fq9,3.0,2023-03-27,,"Action, Comedy, Thriller",United States of America
+The Age of Adaline,2015,https://boxd.it/470clF,3.0,2023-03-30,,"Romance, Fantasy, Drama",United States of America
+The Unbearable Weight of Massive Talent,2022,https://boxd.it/470bUT,3.0,2023-04-06,,"Action, Comedy, Crime",United States of America
+Goliyon Ki Raasleela Ram-Leela,2013,https://boxd.it/4705RT,4.0,2023-04-07,,"Drama, Romance",India
+Drive,2011,https://boxd.it/492RZ9,3.5,2023-04-20,:(((((,"Drama, Thriller, Crime",United States of America
+Don't Worry Darling,2022,https://boxd.it/492SyN,3.0,2023-04-20,"Jack, you are an asshole dumbass.","Science Fiction, Mystery, Thriller, Horror",United States of America
+The Amazing Spider-Man,2012,https://boxd.it/4p2njB,3.0,2023-05-09,,"Action, Adventure, Science Fiction",United States of America
+The Amazing Spider-Man 2,2014,https://boxd.it/4p2nqR,3.0,2023-05-13,,"Action, Adventure, Science Fiction",United States of America
+Noel,2004,https://boxd.it/4hidJJ,2.5,2023-05-18,Just the dance scene,Drama,"Canada, United States of America"
+A Most Violent Year,2014,https://boxd.it/4p2or7,3.0,2023-05-18,,"Crime, Drama, Thriller","United Arab Emirates, United States of America"
+No Way Out,2022,https://boxd.it/4p2pk7,3.0,2023-05-24,"Wellllllll, great scenes🍒 in first half hour, no need to watch the rest.","Thriller, Crime, Action",United States of America
+Spencer,2021,https://boxd.it/4pi44f,3.5,2023-06-20,Wish it could cover more of her life,Drama,"Chile, Germany, United Kingdom, United States of America"
+"Are You There God? It's Me, Margaret.",2023,https://boxd.it/4pp4PT,1.5,2023-06-22,,"Comedy, Drama",United States of America
+The Town,2010,https://boxd.it/4pxgCD,3.0,2023-06-22,,"Crime, Drama, Thriller",United States of America
+The Guilty,2021,https://boxd.it/4q3WJP,2.0,2023-06-22,It was like one of Tom hardy movies. Boring.,"Drama, Thriller",United States of America
+Hello FatherDog,2007,https://boxd.it/4rg5jT,5.0,2023-06-28,"Quoting from <b>“aka.frankie”:</b>
+<i>“Me and a friend used to review the piece of art you created and oh boy we did some revelation's . The moment you called his sister a whore he didnt perform any particular reaction but once you told him to go and die, he just got triggered. The matter of living was more important than the subject of her loved ones being a sex worker. It means he is a metaphor of aristotle being a materialist, and you were plato himself presenting divine ideology. The third party who witnessed the holy argue, he found out something once he said ""i realized the story now"", he opened his third eye he got out of plato's cave and faced the truth. In the end the aristotle drove the car showing the fact that plato left the philosophy's destiny in the hands of his own apprentice.”</i>",Unknown,Unknown
+Anesthesia,2015,https://boxd.it/4rUP0D,3.0,2023-06-30,,"Drama, Thriller",United States of America
+My Fault,2023,https://boxd.it/4tFNn9,1.0,2023-07-06,-.-,"Drama, Romance, Thriller",Spain
+Zodiac,2007,https://boxd.it/4u7v1v,4.0,2023-07-07,Wow.,"Crime, Mystery, Thriller",United States of America
+Glass Onion,2022,https://boxd.it/4uACaH,3.0,2023-07-08,,"Comedy, Crime, Mystery",United States of America
+Deception,2008,https://boxd.it/4w82pj,2.0,2023-07-14,Boring,"Thriller, Mystery","Spain, United States of America"
+The Game,1997,https://boxd.it/4y44Ol,4.0,2023-07-20,"I would kill them all if I was Nicholas, but well, he’s after Clare.","Drama, Thriller, Mystery",United States of America
+Girls to Buy,2021,https://boxd.it/4yhefr,2.0,2023-07-21,,"Thriller, Drama, Crime, Action",Poland
+The Vow,2012,https://boxd.it/4yhh13,3.0,2023-07-21,"Unconsciously I rewatched it and enjoyed it again. Real definition of love in the movies:,)))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))","Drama, Romance",United States of America
+Remember Me,2010,https://boxd.it/4yiXMR,3.5,2023-07-21,"I just love the senario. Like you think finally everything is going well at the end, and it’ll be “happily ever after” but then boom surprise mother fucker! Live rest of your life with regrets puta!","Drama, Romance",United States of America
+Gehraiyaan,2022,https://boxd.it/4yVCZj,3.0,2023-07-21,"Less indian, more realistic.","Romance, Drama",India
+I Care a Lot,2020,https://boxd.it/4HQBTP,3.5,2023-08-03,"Rewatched it with friends, still one of my fav ones.","Crime, Thriller, Drama, Comedy","United Kingdom, United States of America"
+Like Crazy,2011,https://boxd.it/4HQD0H,2.0,2023-08-03,Weirdos.,"Drama, Romance",United States of America
+Extraction 2,2023,https://boxd.it/4HQDN5,2.0,2023-08-03,Is it a movie or a video game on easy level?,"Action, Thriller, Crime",United States of America
+A Long Way Down,2014,https://boxd.it/4HQBbN,2.5,2023-08-10,The girl was on my nerves.,"Comedy, Drama","United Kingdom, Germany"
+Return to Sender,2015,https://boxd.it/4HQCwR,3.5,2023-08-11,And that’s what I call a revenge.,"Drama, Thriller",United States of America
+Delighted,2016,https://boxd.it/4JAhb5,0.5,2023-08-22,,Unknown,Iran
+Mean Girls,2004,https://boxd.it/4ZLdWR,3.0,2023-10-06,,"Drama, Comedy",United States of America
+Ford v Ferrari,2019,https://boxd.it/4ZLeFx,4.0,2023-10-12,,"Drama, Action, History",United States of America
+Gran Turismo,2023,https://boxd.it/4ZLbHF,3.5,2023-10-13,,"Adventure, Drama, Action",United States of America
+"The French Dispatch of the Liberty, Kansas Evening Sun",2021,https://boxd.it/4ZLcht,3.0,2023-10-13,,"Drama, Comedy","United States of America, Germany"
+One Flew Over the Cuckoo's Nest,1975,https://boxd.it/50L8cD,4.0,2023-10-17,,Drama,United States of America
+The Music Man,2007,https://boxd.it/52jNvj,3.5,2023-10-18,,"Music, Drama",Iran
+When Harry Met Sally...,1989,https://boxd.it/543njR,3.0,2023-10-27,,"Comedy, Romance, Drama",United States of America
+The Big Short,2015,https://boxd.it/5S9U5P,4.0,2024-01-27,,"Comedy, Drama",United States of America
+A Nice Girl Like You,2020,https://boxd.it/5MYbUL,0.5,2024-02-08,"SO FUCKIN STUPID 
+OMG","Comedy, Romance",United States of America
+Almost Famous,2000,https://boxd.it/5S9XuN,2.5,2024-02-09,,"Drama, Music",United States of America
+Love at First Sight,2023,https://boxd.it/5R0Di1,3.0,2024-02-10,,"Romance, Drama",United States of America
+Bride Wars,2009,https://boxd.it/5S9Yrv,3.0,2024-02-10,,"Comedy, Romance",United States of America
+May December,2023,https://boxd.it/5Sa0Qx,1.5,2024-02-11,,Drama,United States of America
+Love at First Sight,2023,https://boxd.it/5Sa1Al,3.0,2024-02-11,,"Romance, Drama",United States of America
+13 Going on 30,2004,https://boxd.it/5Sa1YR,2.0,2024-02-15,,"Comedy, Fantasy, Romance",United States of America
+Legally Blonde,2001,https://boxd.it/5R0aLN,2.0,2024-02-17,,Comedy,United States of America
+White Boy Rick,2018,https://boxd.it/5RBhSv,2.5,2024-02-18,,"Crime, Drama",United States of America
+Society of the Snow,2023,https://boxd.it/5UKPzd,3.5,2024-02-23,I cried.,"Drama, History","Spain, United States of America"
+Under the Shadow,2016,https://boxd.it/5UKO9t,2.5,2024-02-24,It could have continued.,"Drama, Horror, War","Jordan, United Kingdom"
+House of Gucci,2021,https://boxd.it/5UKOLd,3.5,2024-02-24,,"Drama, Crime, History","Canada, United States of America"
+Promising Young Woman,2020,https://boxd.it/5X485R,4.0,2024-03-01,I loved Ryan’s sense of humor:((((,"Thriller, Crime, Drama",United States of America
+Vacation,2015,https://boxd.it/60jALX,2.0,2024-03-08,The photos on the title sequence 👌🏻,"Comedy, Adventure",United States of America
+Oppenheimer,2023,https://boxd.it/62qdpL,3.0,2024-03-13,,"Drama, History","United Kingdom, United States of America"
+Drive-Away Dolls,2024,https://boxd.it/66JIMb,2.0,2024-03-21,,"Comedy, Crime","United Kingdom, United States of America"
+Anyone But You,2023,https://boxd.it/66OdJP,2.0,2024-03-22,,"Romance, Comedy",United States of America
+On My Skin,2018,https://boxd.it/67aw0j,3.0,2024-03-23,"Why the lawyer didn’t show up in the fuckin hospital?
+Amd why that fuckin nurse didn’t find him a chocolate? MI HA FATTO PIANGERE",Drama,Italy
+Wind River,2017,https://boxd.it/67lOhJ,4.0,2024-03-23,,"Crime, Mystery, Drama, Thriller","France, United Kingdom, United States of America"
+You Should Have Left,2020,https://boxd.it/69i8Kh,0.5,2024-03-26,,"Horror, Thriller",United States of America
+Eileen,2023,https://boxd.it/69kY8X,0.5,2024-03-28,What?,"Thriller, Crime","United Kingdom, United States of America"
+The Man from U.N.C.L.E.,2015,https://boxd.it/6aG3rB,3.0,2024-03-30,,"Comedy, Action, Adventure",United States of America
+This Is the End,2013,https://boxd.it/6b63dL,2.0,2024-03-31,,"Action, Comedy",United States of America
+Lost Girls,2020,https://boxd.it/6dA4GR,3.5,2024-04-06,Why the police wasn’t doing anything?,"Drama, Mystery, Thriller, History",United States of America
+Dune,2021,https://boxd.it/6e3uOP,3.5,2024-04-07,,"Science Fiction, Adventure",United States of America
+Dune: Part Two,2024,https://boxd.it/6esaOF,3.5,2024-04-07,Needed more of Léa.,"Science Fiction, Adventure",United States of America
+Knocked Up,2007,https://boxd.it/6fEMPp,2.5,2024-04-08,,"Comedy, Romance, Drama",United States of America
+Just Go with It,2011,https://boxd.it/6fEMu7,3.0,2024-04-09,,"Comedy, Romance",United States of America
+The Longest Ride,2015,https://boxd.it/6gm6Gj,2.5,2024-04-12,Poor Ira …,"Drama, Romance",United States of America
+Ad Astra,2019,https://boxd.it/6mAHAT,2.0,2024-04-28,,"Science Fiction, Drama","Brazil, China, United States of America"
+Bones and All,2022,https://boxd.it/6sZj23,0.5,2024-05-12,,"Horror, Romance, Drama","Italy, United States of America"
+The Spy Who Dumped Me,2018,https://boxd.it/6sZjbz,3.0,2024-05-12,,"Comedy, Action, Adventure",United States of America
+Challengers,2024,https://boxd.it/6BKgrZ,4.0,2024-06-02,,"Drama, Romance","Italy, United States of America"
+The Intern,2015,https://boxd.it/6GoeI1,1.5,2024-06-16,,Comedy,United States of America
+The Break-Up,2006,https://boxd.it/6IKQpX,3.0,2024-06-18,,"Romance, Comedy",United States of America
+Two Sisters,2009,https://boxd.it/6Oj1yf,1.0,2024-07-04,,"Comedy, Drama, Family",Iran
+You and Me,2011,https://boxd.it/6Oj2wz,0.5,2024-07-04,,Comedy,Unknown
+La Chimera,2023,https://boxd.it/8Gj80N,3.5,2025-01-31,,"Drama, Fantasy, Comedy","Italy, France, Switzerland, Turkey"
+Emilia Pérez,2024,https://boxd.it/8Ht8Tx,2.0,2025-02-01,,"Drama, Thriller","Belgium, France, United States of America, Mexico"
+Anora,2024,https://boxd.it/8IgRP9,3.0,2025-02-02,,"Drama, Comedy, Romance",United States of America
+Something from Tiffany's,2022,https://boxd.it/8LkpGX,2.0,2025-02-06,,"Romance, Comedy, Drama",United States of America
+The Gap,2014,https://boxd.it/8Lkrld,2.0,2025-02-07,,Drama,United States of America
+Memory,2023,https://boxd.it/8LJNMb,3.0,2025-02-08,I didn’t get the point of Saul being naked most of the time.,"Action, Thriller, Crime",United States of America
+The Hand of God,2021,https://boxd.it/8LYmrP,3.5,2025-02-08,Grazie a Dio che Daniela è uscita dal bagno.,Drama,Italy
+Saltburn,2023,https://boxd.it/8QGVTt,4.0,2025-02-16,It would have been somehow pointless without a twist.,"Drama, Comedy, Thriller","United Kingdom, United States of America"
+My Fault: London,2025,https://boxd.it/8RqptZ,0.5,2025-02-16,An English subtitle for “Culpa Mia” couldn’t do the job?,"Drama, Romance","Spain, United Kingdom, United States of America"
+Beautiful Disaster,2023,https://boxd.it/8SMQ5X,1.0,2025-02-18,Good amout of naked Dylan tho.,"Romance, Drama, Comedy",United States of America
+Wolfs,2024,https://boxd.it/8TX6zD,3.0,2025-02-20,,"Crime, Comedy",United States of America
+Cherry,2021,https://boxd.it/8VfVpJ,3.0,2025-02-21,,"Drama, Crime",United States of America
+Parthenope,2024,https://boxd.it/8VzDLd,4.0,2025-02-23,“Alla fine della vita resterà solo l’ironia“,Drama,"France, Italy"
+My Old Ass,2024,https://boxd.it/93mW99,2.0,2025-03-06,,"Comedy, Drama",United States of America
+A Complete Unknown,2024,https://boxd.it/9CRWPr,2.5,2025-03-08,,"Drama, Music",United States of America
+The Brutalist,2024,https://boxd.it/94F2gb,3.5,2025-03-09,,Drama,"United Kingdom, United States of America"
+Triangle of Sadness,2022,https://boxd.it/9CQw27,2.5,2025-03-10,,"Comedy, Drama","Denmark, France, Germany, Greece, Mexico, Sweden, Switzerland, Turkey, United Kingdom, United States of America"
+The Gorge,2025,https://boxd.it/98SOqb,3.0,2025-03-14,,"Romance, Science Fiction, Thriller",United States of America
+Without Her,2022,https://boxd.it/9CQsr3,2.0,2025-04-04,,"Thriller, Mystery",Iran
+A Relic of the South,2024,https://boxd.it/9CQtvl,2.5,2025-04-07,,Unknown,Unknown
+Entourage,2015,https://boxd.it/9CQcRf,2.5,2025-04-12,,"Comedy, Drama",United States of America
+Game Night,2018,https://boxd.it/9CQeGX,2.0,2025-04-13,,"Mystery, Comedy, Crime",United States of America
+Bad Teacher,2011,https://boxd.it/9CQhk1,3.0,2025-04-17,,Comedy,United States of America
+EuroTrip,2004,https://boxd.it/9CQj2j,2.0,2025-05-03,,Comedy,United States of America
+Finding You,2021,https://boxd.it/9CQprz,2.5,2025-05-04,,"Romance, Drama",United States of America
+Vanilla Sky,2001,https://boxd.it/9F2beX,3.0,2025-05-10,,"Mystery, Romance, Science Fiction","United States of America, Spain"
+Perfect Days,2023,https://boxd.it/9LEh0x,3.5,2025-05-22,,Drama,"Germany, Japan"
+The Great Beauty,2013,https://boxd.it/9NxC3B,3.5,2025-05-25,Voglio essere un gatto in Roma.,Drama,"France, Italy"
+Mickey 17,2025,https://boxd.it/9NQaDT,3.0,2025-05-25,I want a Nasha.,"Science Fiction, Comedy, Adventure","United States of America, United Kingdom"
+Leap Year,2010,https://boxd.it/9R27vD,3.0,2025-05-30,,"Romance, Comedy","Ireland, United States of America"
+Slumdog Millionaire,2008,https://boxd.it/ah2cUn,3.0,2025-07-05,,"Drama, Romance",United Kingdom
+Big Fish,2003,https://boxd.it/anw1DJ,3.5,2025-07-17,,"Adventure, Fantasy, Drama",United States of America
+Materialists,2025,https://boxd.it/audh4F,2.0,2025-07-25,,"Romance, Drama","United States of America, Finland"
+Yes Man,2008,https://boxd.it/aCKg7r,3.0,2025-08-01,,"Comedy, Romance","United Kingdom, United States of America"
+Fifty Shades of Grey,2015,https://boxd.it/aCKqpP,0.5,2025-08-02,,"Drama, Romance, Thriller",United States of America
+Downsizing,2017,https://boxd.it/aCKgY1,2.0,2025-08-03,,"Drama, Science Fiction, Comedy",United States of America
+The Girl on the Train,2016,https://boxd.it/aCKi3r,3.5,2025-08-05,,"Crime, Mystery, Thriller","India, United States of America"
+Civil War,2024,https://boxd.it/aGAlpB,4.0,2025-08-10,Dreamy!,"War, Action, Drama","Finland, United Kingdom, United States of America"
+Into the Wild,2007,https://boxd.it/aI7OWf,2.5,2025-08-11,Don’t eat the herbs that you don’t know about.,"Adventure, Drama",United States of America
+My Oxford Year,2025,https://boxd.it/aI7PWP,0.5,2025-08-12,Jeez.,"Romance, Comedy, Drama",United States of America
+Persepolis,2007,https://boxd.it/aJYBAP,3.5,2025-08-14,,"Animation, Drama","France, United States of America"
+Meet Cute,2022,https://boxd.it/beEdzd,0.5,2025-10-01,,"Comedy, Romance, Science Fiction, Fantasy","Canada, United States of America"
+He's Just Not That Into You,2009,https://boxd.it/bY6owF,2.5,2025-12-07,,"Comedy, Romance, Drama",United States of America
+Annie Hall,1977,https://boxd.it/ccjZe1,3.0,2025-12-08,,"Comedy, Drama, Romance",United States of America
+"Crazy, Stupid, Love.",2011,https://boxd.it/cbffW5,2.5,2025-12-20,,"Comedy, Drama, Romance",United States of America
+Match Point,2005,https://boxd.it/cck3y5,3.0,2025-12-23,Ughhhhhh (I hate Chris),"Drama, Romance, Thriller","United Kingdom, United States of America, Luxembourg"
+Wedding Crashers,2005,https://boxd.it/cfKMP5,3.0,2025-12-26,Boobieeeesssa,"Comedy, Romance",United States of America
+Uncut Gems,2019,https://boxd.it/chrLF9,3.5,2025-12-28,,"Drama, Thriller, Crime",United States of America
+Ask Me If I'm Happy,2000,https://boxd.it/cmZW6H,4.0,2026-01-01,,Comedy,Italy
+One Battle After Another,2025,https://boxd.it/cWoh1V,3.0,2026-01-31,,"Thriller, Crime, Comedy",United States of America
+Bugonia,2025,https://boxd.it/d2ZKyd,2.5,2026-02-06,,"Science Fiction, Thriller, Comedy","Ireland, South Korea, United States of America, Canada"
+No Other Choice,2025,https://boxd.it/d3aVeF,3.5,2026-02-08,,"Comedy, Crime, Thriller","South Korea, France"
+Hamnet,2025,https://boxd.it/dchYR1,4.0,2026-02-18,Dimmi una story commovente,"Drama, Romance, History","United Kingdom, United States of America"
+Crime 101,2026,https://boxd.it/dChfOv,3.0,2026-03-20,,"Crime, Thriller","United Kingdom, United States of America"
+Sinners,2025,https://boxd.it/dCszq1,1.0,2026-03-21,I’d rather watch twilight. At least there’s Robert Pattinson.,"Horror, Action, Thriller",United States of America
+A Girl Walks Home Alone at Night,2014,https://boxd.it/dIRvsh,2.0,2026-03-28,Solo perché c’era il micio.,"Horror, Romance",United States of America
+Die My Love,2025,https://boxd.it/dKZmXz,3.5,2026-03-29,Jennifer Lawrence is really affected by whole motherhood thing.,Drama,United States of America
+How to Make Millions Before Grandma Dies,2024,https://boxd.it/dPHMQt,4.0,2026-04-04,,Drama,Thailand
+Marty Supreme,2025,https://boxd.it/dS0Aet,3.0,2026-04-06,,"Drama, Thriller",United States of America</script>
+
+  <!-- Dashboard Analytics Logic -->
+  <script>
+    // Star rating converter helper
+    function getStars(ratingVal) {
+      const val = parseFloat(ratingVal);
+      if (isNaN(val)) return '';
+      const fullStars = Math.floor(val);
+      const halfStar = (val % 1 !== 0) ? '½' : '';
+      return '★'.repeat(fullStars) + halfStar;
+    }
+
+    // Month index mapping helper
+    const monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+
+    document.addEventListener('DOMContentLoaded', () => {
+      updateLoader('Loading Movie Logs...');
+
+      const csvContent = document.getElementById('csv-data').textContent;
+
+      Papa.parse(csvContent, {
+        header: true,
+        skipEmptyLines: true,
+        complete: function (results) {
+          updateLoader('Compiling Dynamic Dashboard Analytics...');
+          const data = results.data;
+
+          // Data validation & cleansing
+          const cleanData = data.filter(d => d.Name && d.Name.trim() !== '');
+
+          try {
+            // Process analytics
+            populateQuickStats(cleanData);
+            populateTop10Lists(cleanData);
+            renderPlotlyCharts(cleanData);
+
+            // Success: clear loader
+            setTimeout(hideLoader, 500);
+          } catch (err) {
+            console.error('Error computing dashboard values:', err);
+            showError('Unable to generate data analysis grids. Please confirm CSV file structure.');
+          }
+        },
+        error: function (err) {
+          console.error('CSV Parsing Error:', err);
+          showError('Failed to fetch the local CSV dataset. Verify if "Dataset/main_enriched_full.csv" is accessible.');
+        }
+      });
+    });
+
+    function updateLoader(message) {
+      document.getElementById('loader-status').innerText = message;
+    }
+
+    function hideLoader() {
+      const loader = document.getElementById('loading-overlay');
+      loader.style.opacity = '0';
+      setTimeout(() => {
+        loader.style.display = 'none';
+      }, 500);
+    }
+
+    function showError(message) {
+      const banner = document.getElementById('error-banner');
+      banner.innerText = message;
+      banner.style.display = 'block';
+      hideLoader();
+    }
+
+    // SECTION 1: Quick Stats calculations
+    function populateQuickStats(data) {
+      // 1. Total Movies Watched
+      const totalWatched = data.length;
+      document.getElementById('stat-total-watched').innerText = totalWatched.toLocaleString();
+
+      // 2. Average Rating (Ignore empty/NaN ratings)
+      const ratings = data.map(d => parseFloat(d.Rating)).filter(r => !isNaN(r));
+      const avgRating = ratings.length > 0 ? (ratings.reduce((a, b) => a + b, 0) / ratings.length) : 0;
+      document.getElementById('stat-avg-rating').innerText = avgRating > 0 ? avgRating.toFixed(1) + ' ★' : 'N/A';
+      document.getElementById('stat-avg-desc').innerText = `Based on ${ratings.length} rated entries`;
+
+      // 3. Most Watched Release Year (mode of Year)
+      const yearCounts = {};
+      data.forEach(d => {
+        const yr = parseInt(d.Year);
+        if (!isNaN(yr)) {
+          yearCounts[yr] = (yearCounts[yr] || 0) + 1;
+        }
+      });
+      let modeYear = 'N/A';
+      let maxYearCount = 0;
+      for (const yr in yearCounts) {
+        if (yearCounts[yr] > maxYearCount) {
+          maxYearCount = yearCounts[yr];
+          modeYear = yr;
+        }
+      }
+      document.getElementById('stat-mode-year').innerText = modeYear;
+      document.getElementById('stat-mode-desc').innerText = `${maxYearCount} movies watched from ${modeYear}`;
+
+
+    }
+
+    // SECTION 2: Top 10 Lists calculations
+    function populateTop10Lists(data) {
+      // 1. Hall of Fame (Favorites: Sorted by rating descending, then watched date descending to complete 10 items)
+      const fameList = data
+        .filter(d => d.Rating && !isNaN(parseFloat(d.Rating)))
+        .sort((a, b) => parseFloat(b.Rating) - parseFloat(a.Rating) || new Date(b['Watched Date']) - new Date(a['Watched Date']))
+        .slice(0, 10);
+
+      const fameEl = document.getElementById('list-fame');
+      if (fameList.length === 0) fameEl.innerHTML = '<li style="border:none;">No rated movies found.</li>';
+      fameList.forEach(d => {
+        const li = document.createElement('li');
+        const starsLabel = getStars(d.Rating) || 'Unrated';
+        li.setAttribute('data-tooltip', `🎬 ${d.Name}\n📅 ${d.Year}  •  Watched ${d['Watched Date']}\n⭐ ${starsLabel}`);
+        li.innerHTML = `
+          <div class="list-item-left">
+            <div class="item-info">
+              <span class="item-title">${d.Name}</span>
+              <span class="item-meta">
+                <span class="item-meta-desc">${d.Year} &bull; Watched ${d['Watched Date']}</span>
+              </span>
+            </div>
+          </div>
+          <span class="badge green">${starsLabel}</span>
+        `;
+        fameEl.appendChild(li);
+      });
+
+      // 2. Hall of Shame (Worst: 0.5 or 1.0 stars, show 10)
+      const shameList = data
+        .filter(d => parseFloat(d.Rating) === 0.5 || parseFloat(d.Rating) === 1.0)
+        .sort((a, b) => parseFloat(a.Rating) - parseFloat(b.Rating) || new Date(b['Watched Date']) - new Date(a['Watched Date']))
+        .slice(0, 10);
+
+      const shameEl = document.getElementById('list-shame');
+      if (shameList.length === 0) shameEl.innerHTML = '<li style="border:none;">No low-rated movies found.</li>';
+      shameList.forEach(d => {
+        const li = document.createElement('li');
+        li.setAttribute('data-tooltip', `🎬 ${d.Name}\n📅 ${d.Year}  •  Watched ${d['Watched Date']}\n⭐ ${getStars(d.Rating)}`);
+        li.innerHTML = `
+          <div class="list-item-left">
+            <div class="item-info">
+              <span class="item-title">${d.Name}</span>
+              <span class="item-meta">
+                <span class="item-meta-desc">${d.Year} &bull; Watched ${d['Watched Date']}</span>
+              </span>
+            </div>
+          </div>
+          <span class="badge orange">${getStars(d.Rating)}</span>
+        `;
+        shameEl.appendChild(li);
+      });
+
+      // 3. The Passionate Critic (Longest Reviews, show top 10)
+      const criticList = data
+        .filter(d => d.Review && d.Review.trim() !== '')
+        .map(d => ({ ...d, charLen: d.Review.trim().length }))
+        .sort((a, b) => b.charLen - a.charLen)
+        .slice(0, 10);
+
+      const criticEl = document.getElementById('list-critic');
+      if (criticList.length === 0) criticEl.innerHTML = '<li style="border:none;">No reviews logged.</li>';
+      criticList.forEach(d => {
+        const starsText = getStars(d.Rating);
+        const starsFormatted = starsText ? ` &bull; ${starsText}` : '';
+        const reviewPreview = d.Review ? d.Review.trim().substring(0, 80).replace(/\n/g, ' ') + (d.Review.trim().length > 80 ? '...' : '') : '';
+        const li = document.createElement('li');
+        li.setAttribute('data-tooltip', `🎬 ${d.Name}\n📅 ${d.Year}${starsText ? '  •  ⭐ ' + starsText : ''}\n📝 ${d.charLen.toLocaleString()} chars\n💬 "${reviewPreview}"`);
+        li.innerHTML = `
+          <div class="list-item-left">
+            <div class="item-info">
+              <span class="item-title">${d.Name}</span>
+              <span class="item-meta">
+                <span class="item-meta-desc">${d.Year}${starsFormatted}</span>
+              </span>
+            </div>
+          </div>
+          <span class="badge blue">${d.charLen.toLocaleString()} chars</span>
+        `;
+        criticEl.appendChild(li);
+      });
+
+      // 4. The Time Traveler (Most Watched Release Years, show top 10)
+      const yearCounts = {};
+      data.forEach(d => {
+        const yr = parseInt(d.Year);
+        if (!isNaN(yr)) {
+          yearCounts[yr] = (yearCounts[yr] || 0) + 1;
+        }
+      });
+      const yearList = Object.keys(yearCounts)
+        .map(yr => ({ year: yr, count: yearCounts[yr] }))
+        .sort((a, b) => b.count - a.count || b.year - a.year)
+        .slice(0, 10);
+
+      const yearsEl = document.getElementById('list-years');
+      yearList.forEach(d => {
+        const li = document.createElement('li');
+        li.setAttribute('data-tooltip', `📆 Release Year: ${d.year}\n🎬 Films watched: ${d.count}`);
+        li.innerHTML = `
+          <div class="list-item-left">
+            <div class="item-info">
+              <span class="item-title">Films Released in ${d.year}</span>
+            </div>
+          </div>
+          <span class="badge gray">${d.count} films</span>
+        `;
+        yearsEl.appendChild(li);
+      });
+
+      // 5. Quality vs. Quantity (Highest Rated Genres, split by comma)
+      const genreStats = {};
+      data.forEach(d => {
+        if (d.Genre && d.Genre.trim() !== '' && d.Genre !== 'Unknown') {
+          const ratingVal = parseFloat(d.Rating);
+          const genres = d.Genre.split(',').map(g => g.trim());
+          genres.forEach(g => {
+            if (!genreStats[g]) {
+              genreStats[g] = { totalRating: 0, count: 0, ratedCount: 0 };
+            }
+            genreStats[g].count++;
+            if (!isNaN(ratingVal)) {
+              genreStats[g].totalRating += ratingVal;
+              genreStats[g].ratedCount++;
+            }
+          });
+        }
+      });
+      const genreList = Object.keys(genreStats)
+        .map(g => {
+          const stats = genreStats[g];
+          const avg = stats.ratedCount > 0 ? (stats.totalRating / stats.ratedCount) : 0;
+          return { genre: g, avgRating: avg, count: stats.count };
+        })
+        .filter(g => g.avgRating > 0)
+        .sort((a, b) => b.avgRating - a.avgRating || b.count - a.count)
+        .slice(0, 10);
+
+      const genresEl = document.getElementById('list-genres');
+      genreList.forEach(d => {
+        const li = document.createElement('li');
+        li.setAttribute('data-tooltip', `🎭 Genre: ${d.genre}\n🎬 Films watched: ${d.count}\n⭐ Avg rating: ${d.avgRating.toFixed(2)} ★`);
+        li.innerHTML = `
+          <div class="list-item-left">
+            <div class="item-info">
+              <span class="item-title">${d.genre}</span>
+              <span class="item-meta">
+                <span class="item-meta-desc">${d.count} films watched</span>
+              </span>
+            </div>
+          </div>
+          <span class="badge green">${d.avgRating.toFixed(2)} ★</span>
+        `;
+        genresEl.appendChild(li);
+      });
+
+      // 6. The Frequent Flyer (Top Countries, split by comma)
+      const countryCounts = {};
+      data.forEach(d => {
+        if (d.Country && d.Country.trim() !== '' && d.Country !== 'Unknown') {
+          const countries = d.Country.split(',').map(c => c.trim());
+          countries.forEach(c => {
+            countryCounts[c] = (countryCounts[c] || 0) + 1;
+          });
+        }
+      });
+      const countryList = Object.keys(countryCounts)
+        .map(c => ({ country: c, count: countryCounts[c] }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10);
+
+      const countriesEl = document.getElementById('list-countries');
+      countryList.forEach(d => {
+        const li = document.createElement('li');
+        li.setAttribute('data-tooltip', `🌍 Country: ${d.country}\n🎬 Films watched: ${d.count}`);
+        li.innerHTML = `
+          <div class="list-item-left">
+            <div class="item-info">
+              <span class="item-title">${d.country}</span>
+            </div>
+          </div>
+          <span class="badge blue">${d.count} films</span>
+        `;
+        countriesEl.appendChild(li);
+      });
+
+      // 7. The Busiest Binge (Craziest Movie Months, extract Month and Year)
+      const monthCounts = {};
+      data.forEach(d => {
+        const watchDate = d['Watched Date'] ? d['Watched Date'].trim() : '';
+        if (watchDate && watchDate.includes('-')) {
+          const parts = watchDate.split('-');
+          if (parts.length >= 2) {
+            const yr = parts[0];
+            const monthIdx = parseInt(parts[1]) - 1;
+            if (monthIdx >= 0 && monthIdx < 12) {
+              const monthName = monthNames[monthIdx];
+              const key = `${monthName} ${yr}`;
+              monthCounts[key] = (monthCounts[key] || 0) + 1;
+            }
+          }
+        }
+      });
+      const monthList = Object.keys(monthCounts)
+        .map(k => ({ monthYear: k, count: monthCounts[k] }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10);
+
+      const monthsEl = document.getElementById('list-months');
+      monthList.forEach(d => {
+        const li = document.createElement('li');
+        li.setAttribute('data-tooltip', `📅 Month: ${d.monthYear}\n🎬 Films watched: ${d.count}`);
+        li.innerHTML = `
+          <div class="list-item-left">
+            <div class="item-info">
+              <span class="item-title">${d.monthYear}</span>
+            </div>
+          </div>
+          <span class="badge orange">${d.count} films</span>
+        `;
+        monthsEl.appendChild(li);
+      });
+
+      // 8. The Antique Appreciator (Oldest Discoveries: Sort Year ascending, show 10 oldest)
+      const antiqueList = data
+        .filter(d => d.Year && !isNaN(parseInt(d.Year)))
+        .sort((a, b) => parseInt(a.Year) - parseInt(b.Year) || (a['Watched Date'] ? new Date(a['Watched Date']) : 0) - (b['Watched Date'] ? new Date(b['Watched Date']) : 0))
+        .slice(0, 10);
+
+      const antiqueEl = document.getElementById('list-antique');
+      if (antiqueList.length === 0) antiqueEl.innerHTML = '<li style="border:none;">No movies found.</li>';
+      antiqueList.forEach(d => {
+        const li = document.createElement('li');
+        li.setAttribute('data-tooltip', `🎬 ${d.Name}\n📆 Released: ${d.Year}\n📅 Watched: ${d['Watched Date'] || 'N/A'}`);
+        li.innerHTML = `
+          <div class="list-item-left">
+            <div class="item-info">
+              <span class="item-title">${d.Name} (${d.Year})</span>
+              <span class="item-meta">
+                <span class="item-meta-desc">Watched ${d['Watched Date'] || 'N/A'}</span>
+              </span>
+            </div>
+          </div>
+          <span class="badge gray">${d.Year}</span>
+        `;
+        antiqueEl.appendChild(li);
+      });
+
+      // 9. Left Speechless (Shortest Reviews)
+      const speechlessList = data
+        .filter(d => d.Review && d.Review.trim() !== '')
+        .map(d => ({ ...d, charLen: d.Review.trim().length }))
+        .sort((a, b) => a.charLen - b.charLen || (b['Watched Date'] ? new Date(b['Watched Date']) : 0) - (a['Watched Date'] ? new Date(a['Watched Date']) : 0))
+        .slice(0, 10);
+
+      const speechlessEl = document.getElementById('list-speechless');
+      if (speechlessList.length === 0) speechlessEl.innerHTML = '<li style="border:none;">No reviews found.</li>';
+      speechlessList.forEach(d => {
+        const starsText = getStars(d.Rating);
+        const starsFormatted = starsText ? ` &bull; ${starsText}` : '';
+        const fullReview = d.Review ? d.Review.trim().replace(/\n/g, ' ') : '';
+        const li = document.createElement('li');
+        li.setAttribute('data-tooltip', `🎬 ${d.Name}\n📅 ${d.Year}${starsText ? '  •  ⭐ ' + starsText : ''}\n📝 ${d.charLen} chars\n💬 "${fullReview}"`);
+        li.innerHTML = `
+          <div class="list-item-left">
+            <div class="item-info">
+              <span class="item-title">${d.Name}</span>
+              <span class="item-meta">
+                <span class="item-meta-desc">${d.Year}${starsFormatted} &bull; &quot;${d.Review.trim().substring(0, 25)}${d.charLen > 25 ? '...' : ''}&quot;</span>
+              </span>
+            </div>
+          </div>
+          <span class="badge blue">${d.charLen} chars</span>
+        `;
+        speechlessEl.appendChild(li);
+      });
+
+      // 10. Foreign Gems (Top International Films, excluding US)
+      const foreignList = data
+        .filter(d => d.Country && d.Country.trim() !== '' && d.Country !== 'Unknown' && !d.Country.includes('United States'))
+        .sort((a, b) => parseFloat(b.Rating) - parseFloat(a.Rating) || (b['Watched Date'] ? new Date(b['Watched Date']) : 0) - (a['Watched Date'] ? new Date(a['Watched Date']) : 0))
+        .slice(0, 10);
+
+      const foreignEl = document.getElementById('list-foreign');
+      if (foreignList.length === 0) foreignEl.innerHTML = '<li style="border:none;">No international films found.</li>';
+      foreignList.forEach(d => {
+        const li = document.createElement('li');
+        const displayCountry = d.Country.split(',')[0].trim();
+        const starsLabel = getStars(d.Rating) || 'Unrated';
+        li.setAttribute('data-tooltip', `🎬 ${d.Name}\n📅 ${d.Year}  •  ⭐ ${starsLabel}\n🌍 ${d.Country}`);
+        li.innerHTML = `
+          <div class="list-item-left">
+            <div class="item-info">
+              <span class="item-title">${d.Name}</span>
+              <span class="item-meta">
+                <span class="item-meta-desc">${d.Year} &bull; ${displayCountry}</span>
+              </span>
+            </div>
+          </div>
+          <span class="badge green">${starsLabel}</span>
+        `;
+        foreignEl.appendChild(li);
+      });
+
+      // 11. The True Neutral (Exactly 2.5 stars, watched date descending)
+      const neutralList = data
+        .filter(d => parseFloat(d.Rating) === 2.5)
+        .sort((a, b) => (b['Watched Date'] ? new Date(b['Watched Date']) : 0) - (a['Watched Date'] ? new Date(a['Watched Date']) : 0))
+        .slice(0, 10);
+
+      const neutralEl = document.getElementById('list-neutral');
+      if (neutralList.length === 0) neutralEl.innerHTML = '<li style="border:none;">No 2.5-star films found.</li>';
+      neutralList.forEach(d => {
+        const li = document.createElement('li');
+        li.setAttribute('data-tooltip', `🎬 ${d.Name}\n📅 ${d.Year}  •  Watched ${d['Watched Date']}\n⭐ 2.5 Stars — The Neutral Zone`);
+        li.innerHTML = `
+          <div class="list-item-left">
+            <div class="item-info">
+              <span class="item-title">${d.Name}</span>
+              <span class="item-meta">
+                <span class="item-meta-desc">${d.Year} &bull; Watched ${d['Watched Date']}</span>
+              </span>
+            </div>
+          </div>
+          <span class="badge orange">★★½</span>
+        `;
+        neutralEl.appendChild(li);
+      });
+
+      // 12. Genre Masterpieces (Top Drama, sorted by rating descending)
+      const masterpiecesList = data
+        .filter(d => d.Genre && d.Genre.includes('Drama') && d.Rating && !isNaN(parseFloat(d.Rating)))
+        .sort((a, b) => parseFloat(b.Rating) - parseFloat(a.Rating) || (b['Watched Date'] ? new Date(b['Watched Date']) : 0) - (a['Watched Date'] ? new Date(a['Watched Date']) : 0))
+        .slice(0, 10);
+
+      const masterpiecesEl = document.getElementById('list-masterpieces');
+      if (masterpiecesList.length === 0) masterpiecesEl.innerHTML = '<li style="border:none;">No Drama films found.</li>';
+      masterpiecesList.forEach(d => {
+        const li = document.createElement('li');
+        li.setAttribute('data-tooltip', `🎬 ${d.Name}\n📅 ${d.Year}  •  ⭐ ${getStars(d.Rating)}\n🎭 ${d.Genre}`);
+        li.innerHTML = `
+          <div class="list-item-left">
+            <div class="item-info">
+              <span class="item-title">${d.Name}</span>
+              <span class="item-meta">
+                <span class="item-meta-desc">${d.Year} &bull; Drama</span>
+              </span>
+            </div>
+          </div>
+          <span class="badge green">${getStars(d.Rating)}</span>
+        `;
+        masterpiecesEl.appendChild(li);
+      });
+
+      // 13. The Cinematic Diet (Day of week frequency)
+      const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      const dayCounts = { 'Monday': 0, 'Tuesday': 0, 'Wednesday': 0, 'Thursday': 0, 'Friday': 0, 'Saturday': 0, 'Sunday': 0 };
+
+      data.forEach(d => {
+        const watchDateStr = d['Watched Date'] ? d['Watched Date'].trim() : '';
+        if (watchDateStr) {
+          const dateObj = new Date(watchDateStr);
+          if (!isNaN(dateObj.getTime())) {
+            const dayName = dayNames[dateObj.getDay()];
+            dayCounts[dayName]++;
+          }
+        }
+      });
+
+      const sortedDays = Object.keys(dayCounts)
+        .map(day => ({ day: day, count: dayCounts[day] }))
+        .sort((a, b) => b.count - a.count);
+
+      const dietEl = document.getElementById('list-diet');
+      sortedDays.forEach(d => {
+        const li = document.createElement('li');
+        li.setAttribute('data-tooltip', `📅 ${d.day}\n🎬 Films watched: ${d.count}`);
+        li.innerHTML = `
+          <div class="list-item-left">
+            <div class="item-info">
+              <span class="item-title">${d.day}</span>
+              <span class="item-meta">
+                <span class="item-meta-desc">Movies watched on this day</span>
+              </span>
+            </div>
+          </div>
+          <span class="badge blue">${d.count} films</span>
+        `;
+        dietEl.appendChild(li);
+      });
+    }
+
+    // SECTION 3: Plotly charts drawing
+    function renderPlotlyCharts(data) {
+      const darkLayoutDefaults = {
+        paper_bgcolor: 'rgba(0,0,0,0)',
+        plot_bgcolor: 'rgba(0,0,0,0)',
+        font: {
+          color: '#99aabb',
+          family: 'Inter, sans-serif'
+        },
+        margin: { l: 45, r: 20, t: 30, b: 45 }
+      };
+
+      // Chart 1: Genre Distribution (Treemap)
+      const genreCounts = {};
+      data.forEach(d => {
+        if (d.Genre && d.Genre.trim() !== '' && d.Genre !== 'Unknown') {
+          const genres = d.Genre.split(',').map(g => g.trim());
+          genres.forEach(g => {
+            genreCounts[g] = (genreCounts[g] || 0) + 1;
+          });
+        }
+      });
+
+      const treemapLabels = Object.keys(genreCounts);
+      const treemapValues = Object.values(genreCounts);
+      const treemapParents = treemapLabels.map(() => "");
+
+      // Cycle through Letterboxd signature colors (Orange, Green, Blue) for the treemap sectors
+      const paletteColors = ['#ff8000', '#00e054', '#40bcf4'];
+      const treemapColors = treemapLabels.map((_, index) => paletteColors[index % paletteColors.length]);
+
+      const genreTrace = {
+        type: 'treemap',
+        labels: treemapLabels,
+        parents: treemapParents,
+        values: treemapValues,
+        textinfo: "label+value+percent parent",
+        marker: {
+          colors: treemapColors
+        },
+        hoverinfo: "label+value"
+      };
+
+      const genreLayout = {
+        ...darkLayoutDefaults,
+        margin: { l: 0, r: 0, t: 10, b: 0 }
+      };
+
+      Plotly.newPlot('chart-genre-treemap', [genreTrace], genreLayout, { responsive: true, displayModeBar: false });
+
+      // Chart 2: Rating Distribution (Bar Chart)
+      const ratingBuckets = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0];
+      const ratingCounts = {};
+      ratingBuckets.forEach(b => ratingCounts[b] = 0);
+
+      data.forEach(d => {
+        const r = parseFloat(d.Rating);
+        if (!isNaN(r) && ratingCounts[r] !== undefined) {
+          ratingCounts[r]++;
+        }
+      });
+
+      const ratingTrace = {
+        x: ratingBuckets.map(b => b.toFixed(1)),
+        y: ratingBuckets.map(b => ratingCounts[b]),
+        type: 'bar',
+        marker: {
+          color: '#00e054', // Letterboxd Green
+          line: {
+            color: '#1c2228',
+            width: 1
+          }
+        },
+        hovertemplate: 'Rating: %{x} Stars<br>Films: %{y}<extra></extra>'
+      };
+
+      const ratingLayout = {
+        ...darkLayoutDefaults,
+        xaxis: {
+          title: { text: 'Rating Stars', font: { size: 12 } },
+          gridcolor: '#2c3440',
+          linecolor: '#2c3440',
+          tickcolor: '#2c3440',
+          fixedrange: true
+        },
+        yaxis: {
+          title: { text: 'Films Logged', font: { size: 12 } },
+          gridcolor: '#2c3440',
+          linecolor: '#2c3440',
+          tickcolor: '#2c3440',
+          fixedrange: true
+        }
+      };
+
+      Plotly.newPlot('chart-rating-bar', [ratingTrace], ratingLayout, { responsive: true, displayModeBar: false });
+
+      // Chart 3: Viewing History (Heatmap)
+      const shortMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const yearsSet = new Set();
+
+      data.forEach(d => {
+        const watchDate = d['Watched Date'] ? d['Watched Date'].trim() : '';
+        if (watchDate && watchDate.includes('-')) {
+          const yr = parseInt(watchDate.split('-')[0]);
+          if (!isNaN(yr)) yearsSet.add(yr);
+        }
+      });
+
+      // Convert set to sorted list
+      const yearsList = Array.from(yearsSet).sort((a, b) => a - b);
+
+      // Initialize matrix
+      const matrixZ = yearsList.map(() => shortMonths.map(() => 0));
+
+      data.forEach(d => {
+        const watchDate = d['Watched Date'] ? d['Watched Date'].trim() : '';
+        if (watchDate && watchDate.includes('-')) {
+          const parts = watchDate.split('-');
+          const yr = parseInt(parts[0]);
+          const monthIdx = parseInt(parts[1]) - 1;
+          const yrIdx = yearsList.indexOf(yr);
+          if (yrIdx !== -1 && monthIdx >= 0 && monthIdx < 12) {
+            matrixZ[yrIdx][monthIdx]++;
+          }
+        }
+      });
+
+      const heatmapTrace = {
+        x: shortMonths,
+        y: yearsList.map(y => y.toString()),
+        z: matrixZ,
+        type: 'heatmap',
+        colorscale: [
+          [0, '#1c2228'], // Card background
+          [0.5, '#40bcf4'], // Blue
+          [1.0, '#ff8000'] // Orange
+        ],
+        showscale: true,
+        colorbar: {
+          tickfont: { color: '#99aabb' }
+        },
+        hovertemplate: 'Month: %{x}<br>Year: %{y}<br>Films Watched: %{z}<extra></extra>'
+      };
+
+      const heatmapLayout = {
+        ...darkLayoutDefaults,
+        xaxis: {
+          gridcolor: '#2c3440',
+          linecolor: '#2c3440',
+          fixedrange: true
+        },
+        yaxis: {
+          type: 'category',
+          gridcolor: '#2c3440',
+          linecolor: '#2c3440',
+          fixedrange: true
+        }
+      };
+
+      Plotly.newPlot('chart-viewing-heatmap', [heatmapTrace], heatmapLayout, { responsive: true, displayModeBar: false });
+
+      // Chart 4: Global Origin (Choropleth Map)
+      const countryCounts = {};
+      data.forEach(d => {
+        if (d.Country && d.Country.trim() !== '' && d.Country !== 'Unknown') {
+          const countries = d.Country.split(',').map(c => c.trim());
+          countries.forEach(c => {
+            countryCounts[c] = (countryCounts[c] || 0) + 1;
+          });
+        }
+      });
+
+      const choroplethTrace = {
+        type: 'choropleth',
+        locationmode: 'country names',
+        locations: Object.keys(countryCounts),
+        z: Object.values(countryCounts),
+        colorscale: [
+          [0.0, '#40bcf4'], // Blue
+          [0.5, '#00e054'], // Green
+          [1.0, '#ff8000']  // Orange
+        ],
+        showscale: true,
+        colorbar: {
+          tickfont: { color: '#99aabb' },
+          thickness: 15,
+          len: 0.8
+        },
+        hovertemplate: 'Country: %{location}<br>Films Watched: %{z}<extra></extra>',
+        marker: {
+          line: {
+            color: '#14181c',
+            width: 1
+          }
+        }
+      };
+
+      const choroplethLayout = {
+        ...darkLayoutDefaults,
+        margin: { l: 0, r: 0, t: 0, b: 0 },
+        geo: {
+          showframe: false,
+          showcoastlines: true,
+          coastlinecolor: '#2c3440',
+          projection: {
+            type: 'robinson'
+          },
+          bgcolor: 'rgba(0,0,0,0)',
+          landcolor: '#14181c',
+          subunitcolor: '#2c3440'
+        }
+      };
+
+      Plotly.newPlot('chart-origin-map', [choroplethTrace], choroplethLayout, { responsive: true, displayModeBar: false });
+    }
+  </script>
+
+  <!-- Global tooltip bubble — fixed position escapes overflow:auto clipping -->
+  <div id="list-tooltip"></div>
+
+  <script>
+    (function () {
+      const tip = document.getElementById('list-tooltip');
+      let activeLi = null;
+
+      document.addEventListener('mouseover', function (e) {
+        const li = e.target.closest('li[data-tooltip]');
+        if (!li || li === activeLi) return;
+        activeLi = li;
+        tip.textContent = li.getAttribute('data-tooltip');
+        tip.classList.add('visible');
+      });
+
+      document.addEventListener('mousemove', function (e) {
+        if (!activeLi) return;
+        const tw = tip.offsetWidth;
+        const th = tip.offsetHeight;
+        const vw = window.innerWidth;
+        const pad = 10;
+        // Position above the cursor; flip below if too close to top edge
+        let left = e.clientX - tw / 2;
+        let top = e.clientY - th - 14;
+        if (top < pad) top = e.clientY + 18;
+        if (left < pad) left = pad;
+        if (left + tw > vw - pad) left = vw - tw - pad;
+        tip.style.left = left + 'px';
+        tip.style.top = top + 'px';
+      });
+
+      document.addEventListener('mouseout', function (e) {
+        if (!e.target.closest('li[data-tooltip]')) return;
+        activeLi = null;
+        tip.classList.remove('visible');
+      });
+    })();
+  </script>
+
+</body>
+
+</html>
