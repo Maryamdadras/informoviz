@@ -1,8 +1,17 @@
 # InforMoViz
 
-**Information of Movies Visualisation project based on personal Letterboxd data.**
-
+***Infor***mation of ***Mo***vies ***Vis***ualisation project based on personal Letterboxd data.
 This project is a data visualization portfolio piece that explores my personal movie watching, rating, and review patterns collected from Letterboxd. It features multiple charts that tells a story about how I engage with films.
+
+---
+
+## 📁 Key Project Files
+
+* **`Main Review Habit.html`**: The final, interactive dual-axis visualization. You can open this file in any web browser to hover over the data and explore the review patterns.
+* **`main_cleaned.csv`**: The complete, cleaned dataset used for this analysis, featuring the combined Letterboxd diary entries, reviews, and the enriched TMDB API metadata (Genres and Countries).
+* **`informoviz.ipynb`**: The main Jupyter Notebook containing the entire data pipeline, from the initial data merging and API enrichment to the final interactive visualizations.
+
+---
 
 ## 📊 Overview of The Project
 
@@ -26,11 +35,7 @@ While this visualization successfully revealed my reviewing patterns, the datase
 
 ---
 
-## 📁 Key Project Files
-
-* **`Main Review Habit.html`**: The final, interactive dual-axis visualization. You can open this file in any web browser to hover over the data and explore the review patterns.
-* **`main_cleaned.csv`**: The complete, cleaned dataset used for this analysis, featuring the combined Letterboxd diary entries, reviews, and the enriched TMDB API metadata (Genres and Countries).
-* **`informoviz.ipynb`**: The main Jupyter Notebook containing the entire data pipeline, from the initial data merging and API enrichment to the final interactive visualizations.
+> **🌐 Want to see the bigger picture?** > If you are interested in a more general overview of my all-time Letterboxd statistics and viewing habits, you can also check out [my general Letterboxd Dashboard Website here](https://maryamdadras.github.io/informoviz/).
 
 ---
 
