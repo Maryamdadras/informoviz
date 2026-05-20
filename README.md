@@ -28,7 +28,7 @@ While this visualization successfully revealed my reviewing patterns, the datase
 
 ## 📁 Key Project Files
 
-* **`Main Review Habit.html`**: The final, interactive dual-axis visualization. You can open this file in any web browser to hover over the data and explore the review patterns yourself.
+* **`Main Review Habit.html`**: The final, interactive dual-axis visualization. You can open this file in any web browser to hover over the data and explore the review patterns.
 * **`main_cleaned.csv`**: The complete, cleaned dataset used for this analysis, featuring the combined Letterboxd diary entries, reviews, and the enriched TMDB API metadata (Genres and Countries).
 * **`informoviz.ipynb`**: The main Jupyter Notebook containing the entire data pipeline, from the initial data merging and API enrichment to the final interactive visualizations.
 
